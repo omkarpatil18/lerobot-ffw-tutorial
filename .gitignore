@@ -1,9 +1,66 @@
+# Project-specific
 lerobot
 demo_data
+*_demo_data
 demo_data_language
 ckpt
 asset/objaverse/plate_11
 omy_pnp
-.venv
-wandb
 omy_pnp_language
+wandb
+
+# Virtual environments
+.venv
+venv/
+env/
+ENV/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+.pytype/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
