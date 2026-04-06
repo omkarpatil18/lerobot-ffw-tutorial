@@ -61,11 +61,8 @@ class SimpleEnv:
         if seed != None:
             np.random.seed(seed=0)
         # Home configuration
-        q_zero = np.array(
-            [-1.2831156e-01, -1.7097118e-06, -1.4317220e-02, -6.1671460e-01,
-             1.5410118e-01, -5.2158803e-01,  1.5666965e-01, -2.7677399e-01,
-             -2.0159729e-01,  4.3655491e-01, -2.8696448e-01,  1.8140687e-02,
-             -9.8235887e-01, -1.8884487e-01,  0.0000000e+00,  0.0000000e+00])
+        q_zero = np.zeros(len(self.joint_names))
+        q_zero = np.array([-0.5, 0, 0, -0.5, 0, 0, 0] * 2)
         idxs = self.env.get_idxs_fwd(joint_names=self.joint_names)
         self.env.data.qpos[idxs] = q_zero
         self.env.data.qvel[:] = 0.0
@@ -75,8 +72,8 @@ class SimpleEnv:
         n_obj = len(obj_names)
         obj_xyzs = sample_xyzs(
             n_obj,
-            x_range=[+0.24, +0.4],
-            y_range=[-0.2, +0.2],
+            x_range=[-0.35, -0.40],
+            y_range=[-0.15, +0.15],
             z_range=[0.82, 0.82],
             min_dist=0.2,
             xy_margin=0.0,
@@ -258,7 +255,7 @@ class SimpleEnv:
 
         Z : reset
         """
-        step = 0.05
+        step = 0.025
         rot = 0.1 * 0.5
 
         # --- Left arm ---
@@ -361,13 +358,13 @@ class SimpleEnv:
         """
         p_mug = self.env.get_p_body("body_obj_mug_5")
         p_plate = self.env.get_p_body("body_obj_plate_11")
-        gripper_open = self.env.get_qpos_joint("gripper_r_joint1")[0] < 0.1
+        gripper_open = self.env.get_qpos_joint("gripper_l_joint1")[0] < 0.1
         if (
             np.linalg.norm(p_mug[:2] - p_plate[:2]) < 0.1
             and np.linalg.norm(p_mug[2] - p_plate[2]) < 0.6
             and gripper_open
         ):
-            p = self.env.get_p_body("tcp_link_r")[2]
+            p = self.env.get_p_body("tcp_link_l")[2]
             if p > 0.9:
                 return True
         return False
