@@ -1,5 +1,7 @@
-# LeRobot Tutorial with MuJoCo
+# LeRobot Tutorial with MuJoCo (ROBOTIS FFW)
 This repository contains minimal examples for collecting demonstration data and training (or fine-tuning) vision language action models on custom datasets. 
+
+This fork runs every experiment on the bimanual **ROBOTIS FFW SG2** robot instead of the original OMY manipulator. The task is the same pick-and-place: pick a mug and place it on the plate.
 
 ## Table of Contents
 - [:pencil: Installation](#installation)
@@ -12,6 +14,7 @@ This repository contains minimal examples for collecting demonstration data and 
 - [🤗 Models and Dataset](#models-and-dataset-)
 - [:zap:7.Train and deploy pi_0](#7-train-and-deploy-pi_0)
 - [:bulb:8.Train and deploy smolvla](#8-train-and-deploy-smolvla)
+- [:robot: State-based policy scripts](#state-based-policy-scripts)
 - [:pencil: Acknowledgements](#acknowledgements)
 
 ## Installation
@@ -24,6 +27,13 @@ Install mujoco package dependencies and lerobot
 pip install -r requirements.txt
 ```
 Make sure your mujoco version is **3.1.6**.
+
+Everything here was verified in a conda env created from this file:
+```
+conda create -n lerobot_mujoco python=3.10
+conda activate lerobot_mujoco
+pip install -r requirements.txt
+```
 
 Unzip the asset
 ```
@@ -41,59 +51,73 @@ unzip plate_11.zip
 
 :white_check_mark: Add SmolVLA
 
+:white_check_mark: Switch the robot to the ROBOTIS FFW SG2 (ACT trained and deployed; pi_0 / SmolVLA on FFW pending).
+
 ## 1. Collect Demonstration Data
 
 Run [1.collect_data.ipynb](1.collect_data.ipynb)
 
-Collect demonstration data for the given environment.
+Collect demonstration data for the bimanual FFW robot.
 The task is to pick a mug and place it on the plate. The environment recognizes the success if the mug is on the plate, gthe ripper opened, and the end-effector positioned above the mug.
 
 <img src="./media/teleop.gif" width="480" height="360">
 
-Use WASD for the xy plane, RF for the z-axis, QE for tilt, and ARROWs for the rest of rthe otations. 
+The GIF above replays one of the collected FFW demonstrations with the teleop overlays.
 
-SPACEBAR will change your gripper's state, and Z key will reset your environment with discarding the current episode data.
+Teleoperation is bimanual, with one key set per arm:
+
+| | Left arm | Right arm |
+|---|---|---|
+| Position x / y / z | W/S, A/D, R/F | I/K, J/L, U/O |
+| Rotation yaw / pitch / roll | Q/E, UP/DOWN, LEFT/RIGHT | , and . , HOME/END, PAGEUP/PAGEDOWN |
+| Gripper toggle | SPACE | ENTER |
+
+Z key will reset your environment, discarding the current episode data.
 
 For overlayed images, 
 - Top Right: Agent View 
-- Bottom Right: Egocentric View
-- Top Left: Left Side View
-- Bottom Left: Top View
+- Bottom Right: Top View
+- Top Left: Side View
 
-The dataset is contained as follows:
+The FFW dataset is contained as follows:
 ```
 fps = 20,
 features={
-    "observation.image": {
+    "observation.images.agentview": {
         "dtype": "image",
         "shape": (256, 256, 3),
         "names": ["height", "width", "channels"],
     },
-    "observation.wrist_image": {
+    "observation.images.topview": {
         "dtype": "image",
         "shape": (256, 256, 3),
-        "names": ["height", "width", "channel"],
+        "names": ["height", "width", "channels"],
+    },
+    "observation.images.sideview": {
+        "dtype": "image",
+        "shape": (256, 256, 3),
+        "names": ["height", "width", "channels"],
     },
     "observation.state": {
         "dtype": "float32",
-        "shape": (6,),
-        "names": ["state"], # x, y, z, roll, pitch, yaw
+        "shape": (16,),
+        "names": ["state"], # 7 joints of the left arm, 7 of the right arm, then left/right gripper state (0 open, 1 closed)
     },
     "action": {
         "dtype": "float32",
-        "shape": (7,),
-        "names": ["action"], # 6 joint angles and 1 gripper
+        "shape": (16,),
+        "names": ["action"], # same layout as the state: 14 target joint angles + 2 gripper commands
     },
     "obj_init": {
         "dtype": "float32",
         "shape": (6,),
-        "names": ["obj_init"], # just the initial position of the object. Not used in training.
+        "names": ["obj_init"], # initial mug and plate positions. Not used in training.
     },
 },
 
 ```
 
-This will make the dataset on './demo_data' folder, which will look like this,
+This will make the dataset on './ffw_one_arm_data' folder, which will look like this,
 ```
 .
 ├── data
@@ -108,7 +132,7 @@ This will make the dataset on './demo_data' folder, which will look like this,
 └── 
 ```
 
-For convenience, we have added [Example Data](./demo_data_example/) to the repository. 
+For convenience, the 5 FFW episodes used for the ACT experiments are included in [ffw_one_arm_data](./ffw_one_arm_data/). The original OMY example data is still in [demo_data_example](./demo_data_example/).
 
 ## 2. Playback Your Data
 
@@ -116,11 +140,11 @@ Run [2.visualize_data.ipynb](2.visualize_data.ipynb)
 
 <img src="./media/data.gif" width="480" height="360"></img>
 
-Visualize your action based on the reconstructed simulation scene. 
+Visualize your action based on the reconstructed simulation scene. The GIF above replays an FFW episode from `ffw_one_arm_data`.
 
 The main simulation is replaying the action.
 
-The overlayed images on the top right and bottom right are from the dataset. 
+The overlayed images on the top right (agent view) and bottom right (top view) are from the dataset. 
 
 ## 3. Train Action-Chunking-Transformer (ACT)
 
@@ -128,9 +152,9 @@ Run [3.train.ipynb](3.train.ipynb)
 
 **This takes around 30~60 mins**.
 
-Train the ACT model on your custom dataset. In this example, we set chunk_size as 10. 
+Train the ACT model on your custom dataset. In this example, we set chunk_size as 10. The FFW policy uses the agentview camera and the 16-dim joint state as inputs.
 
-The trained checkpoint will be saved in './ckpt/act_y' folder.
+The trained checkpoint will be saved in './ckpt/act_y' folder. The checkpoint committed there was trained on the 5 FFW episodes in `ffw_one_arm_data`.
 
 To evaluate the policy on the dataset, you can calculate the error between ground-truth actions from the dataset.
 
@@ -162,11 +186,9 @@ dataloader = torch.utils.data.DataLoader(
 
 Run [4.deploy.ipynb](4.deploy.ipynb)
 
-You can download checkpoint from [google drive](https://drive.google.com/drive/folders/1UqxqUgGPKU04DkpQqSWNgfYMhlvaiZsp?usp=sharing) if you don't have gpu to train your model.
-
 <img src="./media/rollout.gif" width="480" height="360" controls></img>
 
-Deploy trained policy in simulation.
+Deploy trained policy in simulation. The GIF above is a rollout of the included FFW checkpoint in `./ckpt/act_y`, which reaches the success check after about 8 seconds of sim time.
 
 
 ## 5-6. Collect data and visualize in lanugage conditioned environment
@@ -182,6 +204,8 @@ Deploy trained policy in simulation.
 
 
 ## Models and Dataset 🤗
+The models and dataset below are the original OMY ones, kept for reference. FFW versions of the pi_0 and SmolVLA models have not been trained yet.
+
 <table>
   <tr>
     <th> Model 🤗 </th>
@@ -199,15 +223,17 @@ Deploy trained policy in simulation.
 
 ## 7. Train and Deploy pi_0
 - [train_model.py](train_model.py): Training script
-- [pi0_omy.yaml](pi0_omy.yaml): Training configuration file
+- [pi0_ffw.yaml](pi0_ffw.yaml): Training configuration file
 - [7.pi0.ipynb](7.pi0.ipynb): Policy deployment
 
 
 
 ### Training Scripts
 ```
-python train_model.py --config_path pi0_omy.yaml
+python train_model.py --config_path pi0_ffw.yaml
 ```
+
+**Note:** the rollout and train logs below are from the original OMY runs. FFW results are pending: collect `ffw_language_data` with [5.language_env.ipynb](5.language_env.ipynb), then run the training script above.
 
 
 
@@ -223,17 +249,17 @@ python train_model.py --config_path pi0_omy.yaml
 ### Configuration File
 ```
 dataset:
-  repo_id: omy_pnp_language # Repository ID
-  root: ./demo_data_language # Your root for data file!
+  repo_id: ffw_language # Repository ID
+  root: ./ffw_language_data # Your root for data file!
 policy:
   type : pi0
   chunk_size: 5
   n_action_steps: 5
   
 save_checkpoint: true
-output_dir: ./ckpt/pi0_omy <- Save directory
+output_dir: ./ckpt/pi0_ffw # Save directory
 batch_size: 16
-job_name : pi0_omy
+job_name : pi0_ffw
 resume: false 
 seed : 42
 num_workers: 8
@@ -246,7 +272,7 @@ use_policy_training_preset: true
   
 wandb:
   enable: true
-  project: pi0_omy
+  project: pi0_ffw
   entity: <your_wandb_entity>
   disable_artifact: true
 ```
@@ -254,15 +280,17 @@ wandb:
 ## 8. Train and Deploy Smolvla
 
 - [train_model.py](train_model.py): Training script
-- [smolvla_omy.yaml](smolvla_omy.yaml): Training configuration file
+- [smolvla_ffw.yaml](smolvla_ffw.yaml): Training configuration file
 - [8.smolvla.ipynb](8.smolvla.ipynb): Policy deployment
 
 
 
 ### Training Scripts
 ```
-python train_model.py --config_path smolvla_omy.yaml
+python train_model.py --config_path smolvla_ffw.yaml
 ```
+
+**Note:** the rollout and train logs below are from the original OMY runs. FFW results are pending: collect `ffw_language_data` with [5.language_env.ipynb](5.language_env.ipynb), then run the training script above.
 
 
 
@@ -278,8 +306,8 @@ python train_model.py --config_path smolvla_omy.yaml
 ### Configuration File
 ```
 dataset:
-  repo_id: omy_pnp_language # Repository ID
-  root: ./demo_data_language # Your root for data file!
+  repo_id: ffw_language # Repository ID
+  root: ./ffw_language_data # Your root for data file!
 policy:
   type : smolvla
   chunk_size: 5
@@ -287,9 +315,9 @@ policy:
   device: cuda
   
 save_checkpoint: true
-output_dir: ./ckpt/smolvla_omy # Save directory
+output_dir: ./ckpt/smolvla_ffw # Save directory
 batch_size: 16
-job_name : smolvla_omy
+job_name : smolvla_ffw
 resume: false 
 seed : 42
 num_workers: 8
@@ -302,14 +330,20 @@ use_policy_training_preset: true
   
 wandb:
   enable: true
-  project: smolvla_omy
+  project: smolvla_ffw
   entity: <your_wandb_entity>
   disable_artifact: true
 ```
 
 
+## State-based policy scripts
+Standalone scripts for a proprioception-only (state-based) Diffusion Policy on the FFW, kept in [state_policy_scripts](./state_policy_scripts/):
+- `rollout_wave_policy.py`: roll out a state-only policy on the FFW wave scene in MuJoCo and record videos.
+- `make_rollout_montage.py`: tile the rollout videos of one policy into a single montage.
+- `plot_rollouts.py`: overlay rollout joint trajectories on the demonstration trajectories.
+
 ## Acknowledgements
-- The asset for the robotis-omy manipulator is from [robotis_mujoco_menagerie](https://github.com/ROBOTIS-GIT/robotis_mujoco_menagerie/tree/main).
+- The assets for the ROBOTIS FFW SG2 and the original robotis-omy manipulator are from [robotis_mujoco_menagerie](https://github.com/ROBOTIS-GIT/robotis_mujoco_menagerie/tree/main) (Apache 2.0).
 - The [MuJoco Parser Class](./mujoco_env/mujoco_parser.py) is modified from [yet-another-mujoco-tutorial](https://github.com/sjchoi86/yet-another-mujoco-tutorial-v3). 
 - We refer to original tutorials from [lerobot examples](https://github.com/huggingface/lerobot/tree/main/examples).  
 - The assets for plate and mug is from [Objaverse](https://objaverse.allenai.org/).

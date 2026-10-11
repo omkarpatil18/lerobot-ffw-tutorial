@@ -1,5 +1,4 @@
 import os
-import pyautogui
 import sys
 import time
 import numpy as np
@@ -475,6 +474,7 @@ def get_monitor_size():
     """
     Get monitor size
     """
+    import pyautogui  # lazy: needs a display, so keep headless imports working
     w, h = pyautogui.size()
     return w, h
 
