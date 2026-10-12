@@ -19,6 +19,7 @@ class SimpleEnv:
         action_type="joint_angle",  # changed to joint_angle for ffw
         state_type="joint_angle",
         seed=None,
+        headless=False,
     ):
         """
         args:
@@ -26,6 +27,7 @@ class SimpleEnv:
             action_type: str, type of action space, 'eef_pose','delta_joint_angle' or 'joint_angle'
             state_type: str, type of state space, 'joint_angle' or 'ee_pose'
             seed: int, seed for random number generator
+            headless: bool, render cameras offscreen (EGL) without opening a viewer window
         """
         # Load the xml file
         self.env = MuJoCoParserClass(name="Tabletop", rel_xml_path=xml_path)
@@ -36,7 +38,14 @@ class SimpleEnv:
         self.joint_names_r = [f"arm_r_joint{i}" for i in range(1, 8)]
         self.joint_names = self.joint_names_l + self.joint_names_r
         self.ctrl_names = self.joint_names + ["gripper_l_joint1", "gripper_r_joint1"]
-        self.init_viewer()
+        self.headless = headless
+        # (object, target) body names; scenes with other objects override these
+        self.obj_names = getattr(self, "obj_names", ("body_obj_mug_5", "body_obj_plate_11"))
+        if headless:
+            self.env.reset()
+            self.env.init_offscreen()
+        else:
+            self.init_viewer()
         self.reset(seed)
 
     def init_viewer(self):
@@ -59,10 +68,9 @@ class SimpleEnv:
         Move the robot to a initial position, set the object positions based on the seed
         """
         if seed != None:
-            np.random.seed(seed=0)
-        # Home configuration
-        q_zero = np.zeros(len(self.joint_names))
-        q_zero = np.array([-0.5, 0, 0, -0.5, 0, 0, 0] * 2)
+            np.random.seed(seed=seed)
+        # Home configuration (override with self.home_q before reset, e.g. the real robot's tabletop pose)
+        q_zero = np.array(getattr(self, "home_q", [-0.5, 0, 0, -0.5, 0, 0, 0] * 2), dtype=np.float64)
         idxs = self.env.get_idxs_fwd(joint_names=self.joint_names)
         self.env.data.qpos[idxs] = q_zero
         self.env.data.qvel[:] = 0.0
@@ -193,6 +201,8 @@ class SimpleEnv:
         """
         Render the environment
         """
+        if not self.env.use_mujoco_viewer:
+            return  # headless: nothing to draw
         self.env.plot_time()
         for body_name, color in [
             ("tcp_link_l", [0.95, 0.05, 0.05, 0.5]),
@@ -356,8 +366,8 @@ class SimpleEnv:
         Check if the mug is placed on the plate
         + Gripper should be open and move upward above 0.9
         """
-        p_mug = self.env.get_p_body("body_obj_mug_5")
-        p_plate = self.env.get_p_body("body_obj_plate_11")
+        p_mug = self.env.get_p_body(self.obj_names[0])
+        p_plate = self.env.get_p_body(self.obj_names[1])
         gripper_open = self.env.get_qpos_joint("gripper_l_joint1")[0] < 0.1
         if (
             np.linalg.norm(p_mug[:2] - p_plate[:2]) < 0.1
@@ -375,8 +385,8 @@ class SimpleEnv:
             p_mug: np.array, position of the mug
             p_plate: np.array, position of the plate
         """
-        p_mug = self.env.get_p_body("body_obj_mug_5")
-        p_plate = self.env.get_p_body("body_obj_plate_11")
+        p_mug = self.env.get_p_body(self.obj_names[0])
+        p_plate = self.env.get_p_body(self.obj_names[1])
         return p_mug, p_plate
 
     def set_obj_pose(self, p_mug, p_plate):
@@ -386,10 +396,10 @@ class SimpleEnv:
             p_mug: np.array, position of the mug
             p_plate: np.array, position of the plate
         """
-        self.env.set_p_base_body(body_name="body_obj_mug_5", p=p_mug)
-        self.env.set_R_base_body(body_name="body_obj_mug_5", R=np.eye(3, 3))
-        self.env.set_p_base_body(body_name="body_obj_plate_11", p=p_plate)
-        self.env.set_R_base_body(body_name="body_obj_plate_11", R=np.eye(3, 3))
+        self.env.set_p_base_body(body_name=self.obj_names[0], p=p_mug)
+        self.env.set_R_base_body(body_name=self.obj_names[0], R=np.eye(3, 3))
+        self.env.set_p_base_body(body_name=self.obj_names[1], p=p_plate)
+        self.env.set_R_base_body(body_name=self.obj_names[1], R=np.eye(3, 3))
         self.step_env()
 
     def get_ee_pose(self):

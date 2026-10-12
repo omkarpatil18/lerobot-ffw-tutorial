@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ffw-inspect"
+version = "0.1.0"
+description = "inspect-robots embodiment, task, and oracle policy for the ROBOTIS FFW mug-on-plate MuJoCo scene."
+requires-python = ">=3.10"
+dependencies = ["inspect-robots>=0.30", "numpy>=1.24", "mujoco", "opencv-python-headless"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+only-include = ["embodiment.py", "task.py", "oracle.py", "__init__.py"]
+sources = {"." = "ffw_inspect"}
+
+[project.entry-points."inspect_robots.embodiments"]
+ffw_mujoco = "ffw_inspect:ffw_mujoco_embodiment"
+
+[project.entry-points."inspect_robots.tasks"]
+ffw-cube-on-plate = "ffw_inspect:ffw_cube_on_plate"
+
+[project.entry-points."inspect_robots.policies"]
+ffw_oracle = "ffw_inspect:ffw_oracle_policy"

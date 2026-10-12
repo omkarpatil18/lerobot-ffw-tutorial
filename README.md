@@ -15,6 +15,7 @@ This fork runs every experiment on the bimanual **ROBOTIS FFW SG2** robot instea
 - [:zap:7.Train and deploy pi_0](#7-train-and-deploy-pi_0)
 - [:bulb:8.Train and deploy smolvla](#8-train-and-deploy-smolvla)
 - [:robot: State-based policy scripts](#state-based-policy-scripts)
+- [:brain: 9. Zero-shot LLM control (inspect-robots)](#9-zero-shot-llm-control-inspect-robots)
 - [:pencil: Acknowledgements](#acknowledgements)
 
 ## Installation
@@ -341,6 +342,32 @@ Standalone scripts for a proprioception-only (state-based) Diffusion Policy on t
 - `rollout_wave_policy.py`: roll out a state-only policy on the FFW wave scene in MuJoCo and record videos.
 - `make_rollout_montage.py`: tile the rollout videos of one policy into a single montage.
 - `plot_rollouts.py`: overlay rollout joint trajectories on the demonstration trajectories.
+
+## 9. Zero-shot LLM control (inspect-robots)
+
+Run [9.llm_agent.ipynb](9.llm_agent.ipynb) in the `lerobot_mujoco` env.
+
+Can a frontier LLM drive the FFW through API tool calls and finish a pick-and-place zero-shot? The harness is [inspect-robots](https://github.com/robocurve/inspect-robots), vendored as the `inspect-robots/` submodule (`git submodule update --init`). Our side lives in [ffw_inspect](./ffw_inspect/):
+
+- `ffw_mujoco` embodiment: the tutorial scene with a 5 cm red cube instead of the mug ([asset/example_scene_llm.xml](asset/example_scene_llm.xml)), headless EGL rendering, the real robot's table-top start pose, 14-D end-effector displacement actions with IK and gravity compensation inside.
+- `ffw-cube-on-plate` task: seeded layouts with a privileged success check.
+- `ffw_oracle` policy: a scripted sanity check that completes the task through the same interface.
+
+Setup, once:
+```
+pip install -e inspect-robots -e inspect-robots/plugins/inspect-robots-agent -e ffw_inspect
+cp .env.example .env   # then put your API key in .env
+```
+
+Run from the CLI (or from the notebook):
+```
+inspect-robots run --task ffw-cube-on-plate --policy agent --embodiment ffw_mujoco \
+    -P model=openai/gpt-6.1-sol -P wire=responses -P effort=medium --store-frames
+inspect-robots view logs/      # HTML report with transcript and frames
+inspect-robots video logs/<log>.json   # per-camera MP4s
+```
+
+First result (2026-10-12, one episode, seed 0, images plus proprioception only, no object positions): GPT 6.1 Sol succeeded zero-shot in 35 tool calls and 325 control steps (about 16 s of sim time). It centred over the cube using the top view, closed, checked the gripper reading, did a test lift, carried the cube to the plate, released and withdrew. Logs, frames, actions and raw API traffic are written under `logs/` (gitignored).
 
 ## Acknowledgements
 - The assets for the ROBOTIS FFW SG2 and the original robotis-omy manipulator are from [robotis_mujoco_menagerie](https://github.com/ROBOTIS-GIT/robotis_mujoco_menagerie/tree/main) (Apache 2.0).

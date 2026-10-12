@@ -1,0 +1,3 @@
+[submodule "inspect-robots"]
+	path = inspect-robots
+	url = https://github.com/robocurve/inspect-robots.git

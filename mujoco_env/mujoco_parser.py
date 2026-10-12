@@ -1105,6 +1105,36 @@ class MuJoCoParserClass(object):
         # Print
         if self.verbose: print ("env:[%s] reset"%(self.name))
         
+    def init_offscreen(self, maxgeom=50000):
+        """
+        Headless alternative to init_viewer: an EGL/OSMesa offscreen GL context plus the
+        scene/option/context objects that get_fixed_cam_rgb() reads from self.viewer.
+        No window is opened and no display is needed (set MUJOCO_GL=egl).
+        """
+        import types as _types
+        self._gl_ctx = mujoco.GLContext(1, 1)
+        self._gl_ctx.make_current()
+        viewer = _types.SimpleNamespace()
+        viewer.vopt = mujoco.MjvOption()
+        viewer.cam = mujoco.MjvCamera()
+        viewer.scn = mujoco.MjvScene(self.model, maxgeom=maxgeom)
+        viewer.pert = mujoco.MjvPerturb()
+        viewer.ctx = mujoco.MjrContext(self.model, mujoco.mjtFontScale.mjFONTSCALE_100.value)
+        mujoco.mjr_setBuffer(mujoco.mjtFramebuffer.mjFB_OFFSCREEN.value, viewer.ctx)
+        viewer.is_alive = False
+        self.viewer = viewer
+        self.use_mujoco_viewer = False
+
+    def close_offscreen(self):
+        """Release the offscreen GL context created by init_offscreen()."""
+        ctx = getattr(self, "_gl_ctx", None)
+        if ctx is not None:
+            try:
+                ctx.free()
+            except Exception:
+                pass
+            self._gl_ctx = None
+
     def init_viewer(
             self,
             title             = None,

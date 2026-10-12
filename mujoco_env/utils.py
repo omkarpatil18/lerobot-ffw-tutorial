@@ -474,8 +474,12 @@ def get_monitor_size():
     """
     Get monitor size
     """
-    import pyautogui  # lazy: needs a display, so keep headless imports working
-    w, h = pyautogui.size()
+    try:
+        import pyautogui  # lazy: needs a display, so keep headless imports working
+
+        w, h = pyautogui.size()
+    except Exception:  # no display (headless / EGL rendering): any sane default works
+        w, h = 1920, 1080
     return w, h
 
 

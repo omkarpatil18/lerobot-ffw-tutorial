@@ -64,3 +64,6 @@ Thumbs.db
 
 # Logs
 *.log
+# inspect-robots
+.env
+logs/

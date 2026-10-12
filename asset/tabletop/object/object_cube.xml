@@ -1,0 +1,12 @@
+<mujoco model="cube">
+  <!-- 5 cm red cube: a graspable object for the LLM-agent task (fits between the FFW finger pads). -->
+  <worldbody>
+    <body name="body_obj_cube">
+      <freejoint />
+      <body name="object_cube">
+        <geom type="box" size="0.025 0.025 0.025" mass="0.1" rgba="0.85 0.1 0.1 1"
+              friction="1.0 0.3 0.1" solimp="0.998 0.998 0.001" solref="0.001 1" />
+      </body>
+    </body>
+  </worldbody>
+</mujoco>
