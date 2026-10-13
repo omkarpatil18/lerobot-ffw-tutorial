@@ -369,6 +369,8 @@ inspect-robots video logs/<log>.json   # per-camera MP4s
 
 First result (2026-10-12, one episode, seed 0, images plus proprioception only, no object positions): GPT 6.1 Sol succeeded zero-shot in 35 tool calls and 325 control steps (about 16 s of sim time). It centred over the cube using the top view, closed, checked the gripper reading, did a test lift, carried the cube to the plate, released and withdrew. Logs, frames, actions and raw API traffic are written under `logs/` (gitignored).
 
+Real robot: the same tool surface drives the physical FFW SG2 through a `llm_agent` policy backend in the `cyclo_intelligence` repo (`cyclo_brain/policy/llm_agent`, with the `ffw_sg2_rev1_eef` robot config and the `eef_goal_bridge.py` script that feeds cyclo_control's Cartesian `vr` controller). See that backend's README for the session order and the mock-hardware dry run.
+
 ## Acknowledgements
 - The assets for the ROBOTIS FFW SG2 and the original robotis-omy manipulator are from [robotis_mujoco_menagerie](https://github.com/ROBOTIS-GIT/robotis_mujoco_menagerie/tree/main) (Apache 2.0).
 - The [MuJoco Parser Class](./mujoco_env/mujoco_parser.py) is modified from [yet-another-mujoco-tutorial](https://github.com/sjchoi86/yet-another-mujoco-tutorial-v3). 
